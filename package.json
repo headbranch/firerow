@@ -1,0 +1,50 @@
+{
+	"name": "firerow",
+	"version": "0.1.0",
+	"description": "Edit Firestore collections as CSV files: pull, edit in any spreadsheet, push back with conflict checks and undo.",
+	"keywords": [
+		"firestore",
+		"firebase",
+		"csv",
+		"cms",
+		"spreadsheet",
+		"cli"
+	],
+	"license": "MIT",
+	"author": "Headbranch <hello@headbranch.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/headbranch/firerow.git"
+	},
+	"homepage": "https://github.com/headbranch/firerow#readme",
+	"bugs": {
+		"url": "https://github.com/headbranch/firerow/issues"
+	},
+	"type": "module",
+	"bin": {
+		"firerow": "dist/src/cli.js"
+	},
+	"files": [
+		"dist/src",
+		"!dist/src/**/*.map"
+	],
+	"scripts": {
+		"build": "tsc",
+		"test": "tsc && node --test dist/test/*.test.js",
+		"clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+		"prepublishOnly": "npm run clean && npm test"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"dependencies": {
+		"commander": "^12.1.0",
+		"csv-parse": "^5.5.6",
+		"csv-stringify": "^6.5.1",
+		"firebase-admin": "^13.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"typescript": "^5.6.0"
+	}
+}

@@ -1,6 +1,6 @@
 {
 	"name": "firerow",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Edit Firestore collections as CSV files: pull, edit in any spreadsheet, push back with conflict checks and undo.",
 	"keywords": [
 		"firestore",

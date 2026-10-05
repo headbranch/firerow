@@ -16,6 +16,8 @@ firerow status                       # offline: what you've changed
 firerow push users                   # check for conflicts, confirm, write
 firerow log                          # recent pushes
 firerow revert                       # undo the latest push
+firerow create products name:string,price:number   # start a new collection
+firerow export users -o users.json   # pulled data as JSON
 ```
 
 ## Install
@@ -48,6 +50,8 @@ collection you've pulled (except `untrack`, which needs names).
 | `discard [collections or documents]` | Offline: throws away unpushed edits, restoring the CSVs to what was last pulled or pushed. Name documents (`discard users/alice`) to restore just those rows: an edited row is restored, a deleted one put back, a new one removed. Asks first (`-y` skips that). |
 | `log` | Offline: lists recent pushes, newest first (see [Undoing a push](#undoing-a-push)). `--oneline` gives one line per push; `-n <count>` shows more than 20. |
 | `revert [push]` | Undoes a push — by default the latest one that hasn't been undone (see [Undoing a push](#undoing-a-push)). |
+| `create <collection> [columns]` | Starts a new collection: an empty `documents.csv` with the columns you list, comma-separated (`name:string,price:number,note`; a bare name like `note` has its type guessed), tracked like a pulled one. Opens the CSV for you to add rows (`--app <program>` picks the program, `--no-open` skips it). Firestore has no empty collections, so it's created by your first `push`. Checks first that the collection doesn't already exist (1 read). Works for subcollections too: `create users/alice/orders`. |
+| `export [collections]` | Writes collections as JSON. `--from` picks the source: `pulled` (default, offline) is what you last pulled or pushed, `local` (offline) your CSVs with unpushed edits, `remote` reads Firestore now. Prints to the terminal (for piping) or, with `-o <file>`, writes a file. See [JSON export](#json-export). |
 | `untrack <collections>` | Offline: stops tracking collections and deletes their local CSVs; nothing in Firestore is touched (see [Subcollections](#subcollections)). `-r` includes subcollections; refuses while there are unpushed edits unless `-f`. |
 
 `push` options:
@@ -286,6 +290,43 @@ reformats dates) — those show up as changes in `firerow status`, so check the 
 `.firerow/` holds copies of your data, specific to this machine, and the service-account key grants
 full admin access to your project: keep both out of version control and anywhere public. `init`
 adds both to `.gitignore` for you. Whether to commit `collections/` is up to you.
+
+## JSON export
+
+`firerow export` writes `{ "<collection>": { "<document id>": { fields } } }`, one entry per
+collection:
+
+```json
+{
+  "users": {
+    "alice": {
+      "name": "Alice",
+      "age": 31,
+      "joined": { "$timestamp": "2024-05-01T12:00:00Z" },
+      "manager": { "$ref": "users/bob" }
+    }
+  }
+}
+```
+
+Values are plain JSON, except types JSON can't express, which use the same tagged form as map
+and `:any` cells: `{"$timestamp": …}`, `{"$ref": …}`, `{"$geo": [lat, lng]}`, `{"$bytes": …}`.
+
+`--from` picks where the data comes from:
+
+| `--from` | |
+|---|---|
+| `pulled` (default) | Offline: what Firestore had when you last pulled or pushed. Unpushed edits aren't included; it warns when there are some. |
+| `local` | Offline: your CSVs as they are, unpushed edits included — the documents as a `push` would leave them (a removed column's field is kept, as `push` does unless asked to delete it). New rows with a blank `_id` have no id yet, so they're left out (it says how many). Refuses while a CSV has problems, like unresolved conflicts. |
+| `remote` | Reads Firestore now: 1 read per document. Named collections and patterns are read in full, whether you've pulled them or not; with none named, every pulled collection (a partial copy just its documents, like `pull`). |
+
+With `pulled` and `local`, a partial copy exports just its pulled documents.
+
+```bash
+firerow export                          # every pulled collection, as last pulled
+firerow export users --from local -o users.json
+firerow export "users/*/orders" --from remote > orders.json
+```
 
 ## Emulator
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
-import { Command } from 'commander';
+import { Command, Help, Option } from 'commander';
+import { create } from './commands/create.js';
 import { discard } from './commands/discard.js';
 import { edit } from './commands/edit.js';
+import { exportJson, SOURCES } from './commands/export.js';
 import { init } from './commands/init.js';
 import { list } from './commands/list.js';
 import { pull } from './commands/pull.js';
@@ -10,7 +12,7 @@ import { push, status } from './commands/push.js';
 import { resolve } from './commands/resolve.js';
 import { log, revert } from './commands/revert.js';
 import { untrack } from './commands/untrack.js';
-import { red } from './ui.js';
+import { banner, bold, red } from './ui.js';
 
 // Always end with one blank line, so each command's output is spaced from the next prompt.
 // (Tracks the last characters written so it never doubles up an existing blank line.)
@@ -105,13 +107,56 @@ program.command('untrack')
   .option('-f, --force', 'untrack even if there are unpushed edits (they are lost)')
   .action((c: string[], opts) => untrack(c, opts));
 
+program.command('create')
+  .description('start a new collection: an empty CSV with these columns, created in Firestore by your first push')
+  .argument('<collection>', 'the new collection: <collection> or <collection>/<id>/<subcollection>')
+  .argument('[columns]', 'column headers, comma-separated, each with an optional type: name:string,age:number,tags:array')
+  .option('--app <program>', 'open the CSV with this program instead of the default app')
+  .option('--no-open', "don't open the CSV, just create it")
+  .action((c: string, cols: string | undefined, opts, command: Command) => {
+    // Columns are one comma-separated argument; anything after it was split by spaces — either
+    // between columns, or inside a column name that needed quotes ("first name:string").
+    if (command.args.length > 2) {
+      const pieces = command.args.slice(1);
+      throw new Error('Columns are one comma-separated list, with no spaces between them:\n'
+        + `  ${bold(`firerow create ${c} ${pieces.join(',')}`)}\n`
+        + 'If a column name has a space in it, put it in quotes:\n'
+        + `  ${bold(`firerow create ${c} "${pieces.join(' ')}"`)}`);
+    }
+    return create(c, cols, opts);
+  });
+
+program.command('export')
+  .description('write collections as JSON: as last pulled (default), as in your CSVs, or straight from Firestore')
+  .argument('[collections...]', 'collections or patterns; default: every pulled collection')
+  .addOption(new Option('--from <source>', 'pulled: as last pulled/pushed (offline); local: your CSVs, unpushed edits included (offline); '
+    + 'remote: read from Firestore now (1 read per document)').choices([...SOURCES]).default('pulled'))
+  .option('-o, --output <file>', 'write to this file instead of printing')
+  .action((c: string[], opts) => exportJson(c, opts));
+
 program.command('list').alias('ls')
   .description("list Firestore collections with document counts, and what you've pulled locally")
   .argument('[document]', 'list the subcollections of this document (<collection>/<id>) instead')
   .option('--no-count', "don't count documents (counting costs 1 read per 1,000 documents)")
   .action((d, opts) => list(d, opts));
 
-program.parseAsync().catch((e: Error) => {
+// The main help ("firerow", "firerow --help"): the logo in a terminal, then what firerow is before
+// how to use it. Set up after the commands, so their own help stays plain.
+program
+  .addHelpText('before', () => {
+    const logo = process.stdout.isTTY ? banner() : '';
+    return logo && `\n${logo}\n`;
+  })
+  .configureHelp({
+    formatHelp: (cmd, helper) => {
+      const [usage, description, ...rest] = Help.prototype.formatHelp.call(helper, cmd, helper).split('\n\n');
+      return [description, usage, ...rest].join('\n\n');
+    },
+  });
+
+// Just "firerow": the same help, rather than commander's help-as-error.
+if (process.argv.length <= 2) program.outputHelp();
+else program.parseAsync().catch((e: Error) => {
   console.error(red(`Error: ${e.message}`));
   process.exit(1);
 });

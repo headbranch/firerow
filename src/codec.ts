@@ -111,9 +111,9 @@ function checkRefPath(text: string): string {
 //   {"$timestamp": "2024-01-01T00:00:00Z"}  {"$ref": "users/abc"}
 //   {"$geo": [lat, lng]}                     {"$bytes": "base64..."}   {"$number": "NaN"}
 
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
+export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
-function toEJson(p: PValue): Json {
+export function toEJson(p: PValue): Json {
   switch (p.t) {
     case 'string': case 'boolean': return p.v;
     case 'number': return typeof p.v === 'number' ? p.v : { $number: p.v };

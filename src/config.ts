@@ -25,7 +25,8 @@ export function loadWorkspace(start = process.cwd()): Workspace {
     if (fs.existsSync(file)) {
       // Deleting a collection's folder (or its documents.csv) means "stop tracking it".
       for (const name of untrackDeleted(dir)) {
-        console.log(yellow(`Stopped tracking ${name}: its CSV was deleted, along with any unpushed edits in it.`)
+        // stderr, so output meant for piping (e.g. `export`) stays clean.
+        console.error(yellow(`Stopped tracking ${name}: its CSV was deleted, along with any unpushed edits in it.`)
           + dim(` ${cmd(`firerow pull ${name}`)} brings it back.`));
       }
       return { root: dir, config: JSON.parse(fs.readFileSync(file, 'utf8')) as Config };

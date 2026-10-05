@@ -46,7 +46,9 @@ export async function list(docPath: string | undefined, opts: ListOptions = {}):
   for (const q of pulled) {
     const name = q.join('/');
     if (q.length !== depth || remote.includes(name) || (parent && !name.startsWith(`${parent}/`))) continue;
-    rows.push({ name, docs: '0', state: localState(ws.root, q) + dim(' · no longer in Firestore'), nested: [] });
+    // Never pushed (made with `create`) or emptied since it was pulled.
+    const gone = readSnapshot(snapshotPath(ws.root, q))?.docs.length ? 'no longer in Firestore' : 'not in Firestore yet';
+    rows.push({ name, docs: '0', state: localState(ws.root, q) + dim(` · ${gone}`), nested: [] });
   }
   // Deeper collections you've pulled under each one, e.g. "users/*/bookmarks: 40 pulled".
   for (const row of rows) {

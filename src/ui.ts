@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process';
+import path from 'node:path';
 import readlineCore from 'node:readline';
 import readline from 'node:readline/promises';
 import { encodeCell, type Column, type PValue } from './codec.js';
@@ -164,4 +166,38 @@ export function timeAgo(iso: string): string {
   if (!unit) return 'just now';
   const r = Math.floor(n);
   return `${r} ${unit}${r === 1 ? '' : 's'} ago`;
+}
+
+/** Open a file with its default app (or `app`), without waiting for it to close. */
+export function openFile(file: string, app?: string): void {
+  const fail = () => console.log(yellow(`Couldn't open it automatically — open ${path.relative(process.cwd(), file)} yourself.`));
+  try {
+    const child = app
+      ? spawn(`${app} "${file}"`, { shell: true, detached: true, stdio: 'ignore' })
+      : process.platform === 'win32'
+        ? spawn('cmd', ['/c', 'start', '""', `"${file}"`], { detached: true, stdio: 'ignore', windowsVerbatimArguments: true })
+        : spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [file], { detached: true, stdio: 'ignore' });
+    child.on('error', fail);
+    child.unref();
+  } catch {
+    fail();
+  }
+}
+
+// "FIREROW" in block letters, for running `firerow` on its own.
+const LOGO = [
+  '███████╗██╗██████╗ ███████╗██████╗  ██████╗ ██╗    ██╗',
+  '██╔════╝██║██╔══██╗██╔════╝██╔══██╗██╔═══██╗██║    ██║',
+  '█████╗  ██║██████╔╝█████╗  ██████╔╝██║   ██║██║ █╗ ██║',
+  '██╔══╝  ██║██╔══██╗██╔══╝  ██╔══██╗██║   ██║██║███╗██║',
+  '██║     ██║██║  ██║███████╗██║  ██║╚██████╔╝╚███╔███╔╝',
+  '╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ',
+];
+// 256-colour codes, from the red tips of the flames down to the yellow base.
+const FLAME = [196, 202, 208, 214, 220, 226];
+
+/** The logo in fire colours. Empty when it wouldn't fit the terminal. */
+export function banner(): string {
+  if ((process.stdout.columns || 80) < LOGO[0].length + 2) return '';
+  return LOGO.map((line, i) => ` ${tty ? `\x1b[38;5;${FLAME[i]}m${line}${esc(39)}` : line}`).join('\n');
 }

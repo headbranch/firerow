@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadWorkspace } from '../config.js';
@@ -9,7 +8,7 @@ import { buildSheet, checkSplit, splitSheet } from '../sheet.js';
 import { readSnapshot } from '../snapshot.js';
 import { readCsv, writeCsv } from '../table.js';
 import { parsePullArgs, resolveLocal } from '../targets.js';
-import { bold, cmd, dim, green, readKey, red, yellow } from '../ui.js';
+import { bold, cmd, dim, green, openFile, readKey, red, yellow } from '../ui.js';
 
 export interface EditOptions { open?: boolean; wait?: boolean; app?: string; apply?: boolean; cancel?: boolean }
 
@@ -160,20 +159,5 @@ function removeSheet(file: string): void {
     fs.rmSync(file, { force: true });
   } catch {
     console.log(yellow(`Couldn't delete ${rel(file)} (still open in another app?). It's no longer used — delete it when you can.`));
-  }
-}
-
-function openFile(file: string, app?: string): void {
-  const fail = () => console.log(yellow(`Couldn't open it automatically — open ${rel(file)} yourself.`));
-  try {
-    const child = app
-      ? spawn(`${app} "${file}"`, { shell: true, detached: true, stdio: 'ignore' })
-      : process.platform === 'win32'
-        ? spawn('cmd', ['/c', 'start', '""', `"${file}"`], { detached: true, stdio: 'ignore', windowsVerbatimArguments: true })
-        : spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [file], { detached: true, stdio: 'ignore' });
-    child.on('error', fail);
-    child.unref();
-  } catch {
-    fail();
   }
 }

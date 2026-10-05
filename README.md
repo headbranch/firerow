@@ -26,7 +26,7 @@ firerow export users -o users.json   # pulled data as JSON
 npm install -g firerow
 ```
 
-This installs the `firerow` command. Requires Node.js 18 or later.
+This installs the `firerow` command, also available as the shorter `fr`. Requires Node.js 18 or later.
 
 You'll also need a Firebase **service-account key** (Firebase console → Project settings →
 Service accounts → Generate new private key). `firerow init` asks for its path. The key grants full

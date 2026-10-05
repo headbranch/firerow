@@ -22,7 +22,8 @@
 	},
 	"type": "module",
 	"bin": {
-		"firerow": "dist/src/cli.js"
+		"firerow": "dist/src/cli.js",
+		"fr": "dist/src/cli.js"
 	},
 	"files": [
 		"dist/src",

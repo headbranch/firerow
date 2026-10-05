@@ -1,0 +1,41 @@
+# Publishes to npm and creates the GitHub release when a version tag (v1.2.3) is pushed —
+# which `npm run release` (release-it) does. npm accepts the publish through trusted
+# publishing (set up once on npmjs.com), so there's no npm token stored here.
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the GitHub release
+  id-token: write # npm trusted publishing (and provenance)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24 # trusted publishing needs npm 11.5+
+          registry-url: https://registry.npmjs.org
+
+      - name: Check the tag matches package.json
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json ($version)"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # prepublishOnly does a clean build and runs the tests first.
+      - run: npm publish
+
+      - name: Create the GitHub release
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

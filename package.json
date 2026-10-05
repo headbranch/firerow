@@ -1,6 +1,6 @@
 {
 	"name": "firerow",
-	"version": "0.1.1",
+	"version": "0.1.0",
 	"description": "Edit Firestore collections as CSV files: pull, edit in any spreadsheet, push back with conflict checks and undo.",
 	"keywords": [
 		"firestore",
@@ -32,7 +32,8 @@
 		"build": "tsc",
 		"test": "tsc && node --test dist/test/*.test.js",
 		"clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
-		"prepublishOnly": "npm run clean && npm test"
+		"prepublishOnly": "npm run clean && npm test",
+		"release": "release-it"
 	},
 	"engines": {
 		"node": ">=18"
@@ -45,6 +46,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.0.0",
+		"release-it": "^20.2.1",
 		"typescript": "^5.6.0"
 	}
 }

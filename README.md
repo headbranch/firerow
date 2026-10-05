@@ -349,6 +349,22 @@ npm test       # builds and runs the tests
 npm link       # makes your local build available as `firerow`
 ```
 
+### Releasing
+
+```bash
+npm run release
+```
+
+[release-it](https://github.com/release-it/release-it) runs the tests, asks for the new version,
+then commits the bump, tags it (`v1.2.3`) and pushes. The pushed tag starts the
+[Publish workflow](.github/workflows/publish.yml), which checks the tag matches `package.json`,
+publishes to npm (with provenance) and creates the GitHub release with generated notes. So npm
+only ever gets versions that are on GitHub; don't run `npm publish` yourself.
+
+Publishing uses npm's trusted publishing, so there's no npm token to store: on npmjs.com, the
+package's Settings → Trusted publishing lists GitHub Actions, repository `headbranch/firerow`,
+workflow `publish.yml`.
+
 ## License
 
 [MIT](LICENSE)

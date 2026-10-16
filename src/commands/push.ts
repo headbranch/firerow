@@ -165,7 +165,7 @@ export async function push(args: string[], opts: PushOptions): Promise<void> {
   for (const t of candidates) { heading(t); printPlan(t.plan, t.table.columns, t.base); }
   const pending = candidates.filter((t) => !isEmptyPlan(t.plan));
   if (!pending.length) { console.log(green('\nNo changes to push.')); return; }
-  const names = pending.map((t) => t.name).join(',');
+  const names = pending.map((t) => t.name).join(' ');
   if (opts.dryRun) { console.log(dim('\n--dry-run: nothing was written.')); return; }
 
   const db = connect(ws);
@@ -178,7 +178,7 @@ export async function push(args: string[], opts: PushOptions): Promise<void> {
     if (!opts.force) {
       process.exitCode = 1;
       console.log(`\nNothing was written${multi ? ' to any collection' : ''}.`);
-      const conflictedNames = conflicted.map((t) => t.name).join(',');
+      const conflictedNames = conflicted.map((t) => t.name).join(' ');
       // Offer to do the `pull` merge right away (only when someone can answer; never with --yes).
       if (!opts.yes && process.stdin.isTTY && await confirm('Merge the remote changes into your CSV now?')) {
         const needChoice: string[] = [];
@@ -214,7 +214,7 @@ export async function push(args: string[], opts: PushOptions): Promise<void> {
   if (total > BATCH_LIMIT) {
     console.log(yellow(`\n${total} writes exceeds one batch (${BATCH_LIMIT}); they'll be applied in ${Math.ceil(total / BATCH_LIMIT)} batches and are not atomic as a whole.`));
   }
-  if (!opts.yes && !(await confirm(`\nApply these changes to ${bold(names.replace(/,/g, ', '))}?`))) {
+  if (!opts.yes && !(await confirm(`\nApply these changes to ${bold(pending.map((t) => t.name).join(', '))}?`))) {
     console.log(dim('Aborted. Nothing was written.'));
     return;
   }

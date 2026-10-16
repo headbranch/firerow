@@ -11,6 +11,10 @@ const CSV_NAME = 'documents.csv';
 const WILDCARD = '*';
 
 function segments(input: string): string[] {
+  // One path per argument: "teams,staff" (or PowerShell's "teams staff" for an unquoted teams,staff) is two.
+  if (/[\s,]/.test(input.trim())) {
+    throw new Error(`"${input.trim()}": a path can't contain commas or spaces. Name one per argument, separated by spaces.`);
+  }
   const segs = input.replace(/\\/g, '/').split('/').filter(Boolean);
   if (segs[segs.length - 1] === CSV_NAME) segs.pop(); // tab-completed file path…
   if (segs[0] === COLLECTIONS_DIR) segs.shift(); // …or folder path

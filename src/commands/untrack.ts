@@ -42,7 +42,7 @@ export async function untrack(args: string[], opts: { force?: boolean; recursive
   if (dirty.length && !opts.force) {
     process.exitCode = 1;
     for (const d of dirty) console.log(`${bold(d.name)}: ${yellow(d.what)}`);
-    const names = dirty.map((d) => d.name).join(',');
+    const names = dirty.map((d) => d.name).join(' ');
     console.log(`\nNothing was untracked. First ${cmd(`firerow push ${names}`)} or ${cmd(`firerow discard ${names}`)}`
       + ` — or use ${bold('--force')} to untrack anyway and lose these edits.`);
     return;

@@ -183,10 +183,10 @@ test('"*" patterns', () => {
   assert.throws(() => parseCollectionPath('users/al*/b'), /whole document id/);
 });
 
-test('collection arguments: commas, spaces, duplicates, patterns', () => {
-  assert.deepEqual(parseArgs(['users,staff', 'users/*/bookmarks', ' staff ']).map((s) => s.join('/')),
+test('collection arguments: one per argument, duplicates, patterns', () => {
+  assert.deepEqual(parseArgs(['users', 'staff', 'users/*/bookmarks', ' staff ']).map((s) => s.join('/')),
     ['users', 'staff', 'users/*/bookmarks']);
-  assert.throws(() => parseArgs(['users,users/abc']), /is a document, not a collection/);
+  assert.throws(() => parseArgs(['users', 'users/abc']), /is a document, not a collection/);
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bd-'));
   assert.deepEqual(resolveLocal(root, []), []); // nothing pulled yet
@@ -276,7 +276,7 @@ import { parsePullArgs } from '../src/targets.js';
 import { parseCollectionOrDocument } from '../src/paths.js';
 
 test('pull arguments: documents and collections', () => {
-  const { collections, docs } = parsePullArgs(['users/alice,users/bob', 'staff', 'users/alice/bookmarks/b1', 'collections/teams/red']);
+  const { collections, docs } = parsePullArgs(['users/alice', 'users/bob', 'staff', 'users/alice/bookmarks/b1', 'collections/teams/red']);
   assert.deepEqual(collections.map((s) => s.join('/')), ['staff']);
   assert.deepEqual([...docs].map(([c, ids]) => [c, [...ids]]), [
     ['users', ['alice', 'bob']],
@@ -284,6 +284,9 @@ test('pull arguments: documents and collections', () => {
     ['teams', ['red']],
   ]);
   assert.throws(() => parseCollectionOrDocument('users/*'), /can't be used in a document path/);
+  // One path per argument: a comma or space inside one is never part of a path.
+  assert.throws(() => parseCollectionOrDocument('teams,staff'), /can't contain commas or spaces/);
+  assert.throws(() => parseCollectionOrDocument('users/alice users/bob'), /can't contain commas or spaces/);
   assert.throws(() => parseCollectionOrDocument('users/*/bookmarks/b1'), /can't be used in a document path/);
 });
 

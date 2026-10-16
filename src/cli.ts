@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { Command, Help, Option } from 'commander';
-import { create } from './commands/create.js';
+import { create, quoteColumnsError, spaceSeparated } from './commands/create.js';
 import { discard } from './commands/discard.js';
 import { edit } from './commands/edit.js';
 import { exportJson, SOURCES } from './commands/export.js';
@@ -12,6 +12,7 @@ import { push, status } from './commands/push.js';
 import { resolve } from './commands/resolve.js';
 import { log, revert } from './commands/revert.js';
 import { untrack } from './commands/untrack.js';
+import { checkOperands } from './targets.js';
 import { banner, bold, red } from './ui.js';
 
 // Always end with one blank line, so each command's output is spaced from the next prompt.
@@ -28,10 +29,18 @@ process.on('exit', () => {
   if (tail && tail !== '\n\n') process.stdout.write(tail.endsWith('\n') ? '\n' : '\n\n');
 });
 
+const collect = (value: string, previous: string[] = []) => [...previous, value];
+
 const program = new Command()
   .name('firerow')
   .description('Edit Firestore collections as CSV files.')
   .version(JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version);
+
+// Collections and documents are named one per argument, separated by spaces.
+const TAKES_PATHS = new Set(['pull', 'status', 'push', 'edit', 'resolve', 'discard', 'export', 'untrack']);
+program.hook('preAction', (_, action) => {
+  if (TAKES_PATHS.has(action.name())) checkOperands(action.name(), action.args);
+});
 
 program.command('init')
   .description('connect this folder to a Firebase project')
@@ -42,9 +51,34 @@ program.command('init')
 
 program.command('pull')
   .description('download collections to collections/<path>/documents.csv, merging any unpushed edits (default: every pulled collection)')
-  .argument('[paths...]', 'collections, documents or patterns, space- or comma-separated: <collection> <collection>/<id> "<collection>/*/<subcollection>"')
+  .argument('[paths...]', 'collections, documents or patterns, separated by spaces: <collection> <collection>/<id> "<collection>/*/<subcollection>"')
   .option('-a, --all', "also pull every top-level collection (shows document counts and asks first)")
-  .option('-y, --yes', 'with --all: skip the confirmation prompt')
+  .option('-y, --yes', 'with --all or a filter: skip the confirmation prompt')
+  .option('-w, --where <filter>', 'only documents matching "<field> <op> <value>"; join several with and/or, group with ( ) (repeatable; all must match)', collect)
+  .option('--order-by <field>', '"<field> [asc|desc]", as in orderBy() (repeatable)', collect)
+  .option('--limit <n>', 'at most this many documents, as in limit()')
+  .option('--limit-to-last <n>', 'the last n documents in --order-by order, as in limitToLast()')
+  .option('--replace', 'with a filter or documents: keep only what this pull returns in the CSV (otherwise it asks)')
+  .option('--add', 'with a filter or documents: add what this pull returns to the CSV, keeping the rest (otherwise it asks)')
+  .option('-q, --query <query>', "a query in SDK form: \"where('salesTotal', '>=', 100000).limit(10)\", or @file to read it from a file")
+  .addHelpText('after', `
+Filters (the matching documents go into the collection's CSV, as a partial copy):
+  firerow pull employees --where "branch == 'Scranton' and department == 'Sales'"
+  firerow pull employees --where "name in ['Jim Halpert', 'Dwight Schrute']"
+  firerow pull employees --where "dundies array-contains 'Hottest in the Office'"
+  firerow pull sales --where "client == 'Lackawanna County'" --order-by "closedAt desc" --limit 100
+  firerow pull complaints --where "filedBy == 'Toby Flenderson' or severity >= 3"
+  firerow pull employees --where "(branch == 'Scranton' and department == 'Sales') or salesTotal >= 100000"
+  firerow pull employees --query "where('salesTotal', '>=', 100000).orderBy('salesTotal', 'desc').limit(10)"
+  firerow pull employees --query @top-sellers.txt     (the query in a file: no shell quoting)
+
+Operators: == != < <= > >= in not-in array-contains array-contains-any
+and / or join conditions; mixing them needs parentheses: (a and b) or c
+Values: 'text' (quoted; a single word can go without), 18, true, null, ['a', 'b'],
+  Timestamp('2005-03-24'), ref('employees/michael'), GeoPoint(41.41, -75.66). _id is the document id.
+  Unquoted values take their column's type: extension == 0042 is text in an extension:string column.
+Quoting (same in bash, cmd and PowerShell): double quotes around the filter, single quotes for text
+  inside, '' for an apostrophe: --where "name == 'Pam''s desk'"`)
   .action((c: string[], opts) => pull(c, opts));
 
 program.command('status')
@@ -54,7 +88,7 @@ program.command('status')
 
 program.command('push')
   .description('push your CSV edits to Firestore')
-  .argument('[collections...]', 'collections or patterns, space- or comma-separated; default: every pulled collection')
+  .argument('[collections...]', 'collections or patterns, separated by spaces; default: every pulled collection')
   .option('-n, --dry-run', 'show the changes without writing')
   .option('-y, --yes', 'skip the confirmation prompt')
   .option('-f, --force', 'overwrite fields that changed in Firestore since you pulled')
@@ -110,16 +144,17 @@ program.command('untrack')
 program.command('create')
   .description('start a new collection: an empty CSV with these columns, created in Firestore by your first push')
   .argument('<collection>', 'the new collection: <collection> or <collection>/<id>/<subcollection>')
-  .argument('[columns]', 'column headers, comma-separated, each with an optional type: name:string,age:number,tags:array')
+  .argument('[columns]', 'column headers in double quotes, comma-separated, each with an optional type: "name:string,age:number,tags:array"')
   .option('--app <program>', 'open the CSV with this program instead of the default app')
   .option('--no-open', "don't open the CSV, just create it")
   .action((c: string, cols: string | undefined, opts, command: Command) => {
-    // Columns are one comma-separated argument; anything after it was split by spaces — either
-    // between columns, or inside a column name that needed quotes ("first name:string").
+    // Columns are one quoted, comma-separated argument; anything after it was split by spaces —
+    // either between columns, or inside a column name that needed quotes ("first name:string").
     if (command.args.length > 2) {
       const pieces = command.args.slice(1);
+      if (spaceSeparated(pieces.join(' '))) throw quoteColumnsError(c, pieces.flatMap((p) => p.split(',')).filter(Boolean));
       throw new Error('Columns are one comma-separated list, with no spaces between them:\n'
-        + `  ${bold(`firerow create ${c} ${pieces.join(',')}`)}\n`
+        + `  ${bold(`firerow create ${c} "${pieces.join(',')}"`)}\n`
         + 'If a column name has a space in it, put it in quotes:\n'
         + `  ${bold(`firerow create ${c} "${pieces.join(' ')}"`)}`);
     }
@@ -139,6 +174,10 @@ program.command('list').alias('ls')
   .argument('[document]', 'list the subcollections of this document (<collection>/<id>) instead')
   .option('--no-count', "don't count documents (counting costs 1 read per 1,000 documents)")
   .action((d, opts) => list(d, opts));
+
+// Extra arguments are an error, not silently ignored (`firerow log extra`). `create` explains
+// its own: what follows the columns is usually a column list split by spaces.
+for (const c of program.commands) if (c.name() !== 'create') c.allowExcessArguments(false);
 
 // The main help ("firerow", "firerow --help"): the logo in a terminal, then what firerow is before
 // how to use it. Set up after the commands, so their own help stays plain.

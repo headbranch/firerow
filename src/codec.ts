@@ -74,7 +74,7 @@ function timestampToIso({ s, n }: { s: number; n: number }): string {
   return `${base}.${n % 1_000_000 === 0 ? frac.slice(0, 3) : frac}Z`;
 }
 
-function isoToTimestamp(text: string): { s: number; n: number } {
+export function isoToTimestamp(text: string): { s: number; n: number } {
   const m = /^(.*?)(?:\.(\d{1,9}))?(Z|[+-]\d{2}:?\d{2})?$/.exec(text.trim());
   const ms = Date.parse(text);
   if (!m || Number.isNaN(ms)) throw new CellError(`"${text}" is not a valid date/time (use ISO 8601, e.g. 2024-05-01T12:00:00Z)`);
@@ -86,7 +86,7 @@ function isoToTimestamp(text: string): { s: number; n: number } {
 
 // ---------- Geopoints and references ----------
 
-function checkGeo(lat: number, lng: number, text: string): { lat: number; lng: number } {
+export function checkGeo(lat: number, lng: number, text: string): { lat: number; lng: number } {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new CellError(`"${text}" is not a geopoint (use "lat, lng")`);
   if (lat < -90 || lat > 90) throw new CellError(`"${text}": latitude must be between -90 and 90`);
   if (lng < -180 || lng > 180) throw new CellError(`"${text}": longitude must be between -180 and 180`);
@@ -94,7 +94,7 @@ function checkGeo(lat: number, lng: number, text: string): { lat: number; lng: n
 }
 
 /** Validate a document path ("users/abc", "users/abc/posts/1"); a leading "/" is dropped. */
-function checkRefPath(text: string): string {
+export function checkRefPath(text: string): string {
   const path = text.trim().replace(/^\/+/, '');
   const parts = path.split('/');
   if (path === '' || parts.some((p) => p === '' || p === '.' || p === '..')) {

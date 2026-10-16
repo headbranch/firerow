@@ -19,7 +19,7 @@ export async function discard(args: string[], opts: { yes?: boolean }): Promise<
   // Split what was named into collections (or patterns) and documents.
   const collectionArgs: string[] = [];
   const docArgs = new Map<string, { segs: string[]; ids: Set<string> }>();
-  for (const a of args.flatMap((x) => x.split(',')).map((x) => x.trim()).filter(Boolean)) {
+  for (const a of args.map((x) => x.trim()).filter(Boolean)) {
     const { collection, id } = parseCollectionOrDocument(a);
     if (id === undefined) { collectionArgs.push(a); continue; }
     const name = collection.join('/');

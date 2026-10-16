@@ -1,5 +1,5 @@
-// Which collections a command acts on: the ones named (space- or comma-separated,
-// "*" patterns allowed), or every collection that has been pulled into this workspace.
+// Which collections a command acts on: the ones named (one per argument, "*" patterns
+// allowed), or every collection that has been pulled into this workspace.
 import fs from 'node:fs';
 import path from 'node:path';
 import { csvPath, isPattern, matchesPattern, parseCollectionOrDocument, parseCollectionPath, STATE_DIR, statePath } from './paths.js';
@@ -47,11 +47,26 @@ export function removeEmptyDirs(dir: string, stop: string): void {
   }
 }
 
-/** "users,staff" / ["users", "users/*\/bookmarks"] → parsed paths (patterns kept as patterns), deduplicated. */
+/**
+ * Paths are named one per argument, separated by spaces: firerow pull users staff. An argument
+ * with a comma or space in it (users,staff — or "users staff", which is what PowerShell makes of
+ * an unquoted users,staff) is refused, with the command to run instead.
+ */
+export function checkOperands(command: string, args: string[]): void {
+  const bad = args.find((a) => /[\s,]/.test(a.trim()));
+  if (!bad) return;
+  const parts = args.flatMap((a) => a.split(/[\s,]+/)).filter(Boolean).map((p) => (p.includes('*') ? `"${p}"` : p));
+  throw new Error(`"${bad.trim()}": name each collection or document as its own argument, separated by spaces:\n`
+    + `  ${cmd(`firerow ${command} ${parts.join(' ')}`)}`);
+}
+
+const named = (args: string[]) => args.map((a) => a.trim()).filter(Boolean);
+
+/** ["users", "users/*\/bookmarks"] → parsed paths (patterns kept as patterns), deduplicated. */
 export function parseArgs(args: string[] = []): string[][] {
   const seen = new Set<string>();
   const out: string[][] = [];
-  for (const a of args.flatMap((x) => x.split(',')).map((x) => x.trim()).filter(Boolean)) {
+  for (const a of named(args)) {
     const segs = parseCollectionPath(a);
     if (!seen.has(segs.join('/'))) { seen.add(segs.join('/')); out.push(segs); }
   }
@@ -62,7 +77,7 @@ export function parseArgs(args: string[] = []): string[][] {
 export function parsePullArgs(args: string[] = []): { collections: string[][]; docs: Map<string, Set<string>> } {
   const collections = new Map<string, string[]>();
   const docs = new Map<string, Set<string>>();
-  for (const a of args.flatMap((x) => x.split(',')).map((x) => x.trim()).filter(Boolean)) {
+  for (const a of named(args)) {
     const { collection, id } = parseCollectionOrDocument(a);
     const name = collection.join('/');
     if (id === undefined) collections.set(name, collection);

@@ -80,6 +80,20 @@ export async function fetchCollection(db: Firestore, segs: string[]): Promise<Sn
   return out;
 }
 
+/** Run a filtered query (all its results at once), grouped by the collection each document is in. */
+export async function fetchQuery(query: Query): Promise<Map<string, SnapshotDoc[]>> {
+  const groups = new Map<string, SnapshotDoc[]>();
+  let count = 0;
+  for await (const d of query.stream() as AsyncIterable<QueryDocumentSnapshot>) {
+    const collection = d.ref.parent.path;
+    if (!groups.has(collection)) groups.set(collection, []);
+    groups.get(collection)!.push(toSnapshotDoc(d));
+    if (++count % 500 === 0) process.stderr.write(`\r  fetched ${count} documents…`);
+  }
+  if (count >= 500) process.stderr.write('\n');
+  return groups;
+}
+
 /**
  * Read every collection matching a pattern like users/*\/bookmarks with a single
  * collection-group query, grouped by concrete collection path.
